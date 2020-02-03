@@ -1,0 +1,32 @@
+plugins {
+    id 'maven'
+    id 'com.palantir.docker' version '0.24.0'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        credentials {
+            username mavenUser
+            password mavenPassword
+        }
+        url mavenRepo
+    }
+}
+
+//uploadArchives {
+//    repositories {
+//        mavenDeployer {
+//            repository(url: mavenRepo) {
+//                authentication(userName: mavenUser, password: mavenPassword)
+//            }
+//            pom.version = version + "-SNAPSHOT"
+//            pom.artifactId = artifactId
+//            pom.groupId = groupId
+//        }
+//    }
+//}
+
+dependencies {
+    docker "com.leonardo.rocha:test:1.0.0-SNAPSHOT"
+}
