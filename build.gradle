@@ -1,6 +1,6 @@
 plugins {
     id 'maven'
-    id 'com.palantir.docker' version '0.24.0'
+    id 'com.palantir.docker' version("0.24.0")
 }
 
 repositories {
@@ -27,6 +27,42 @@ repositories {
 //    }
 //}
 
+ext {
+    jarVersion = "1.0.0-SNAPSHOT"
+    jarArtifactId = "${project.name.minus("-docker")}"
+    jarGroupId = "com.leonardo.rocha"
+}
+
 dependencies {
-    docker "com.leonardo.rocha:test:1.0.0-SNAPSHOT"
+    docker "${jarGroupId}:${jarArtifactId}:${jarVersion}"
+}
+
+task copySpringBootJar(type: Copy){
+    from project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
+    into "${buildDir}/dockerStage"
+}
+
+task extractManifest(type: Exec){
+    dependsOn(project.tasks.copySpringBootJar)
+    workingDir "${buildDir}/dockerStage"
+    commandLine "jar","xvf","${jarArtifactId}-${jarVersion}.jar", "META-INF/MANIFEST.MF"
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString()
+    }
+}
+
+project.tasks.docker.dependsOn(project.tasks.extractManifest)
+
+docker {
+    name "${jarGroupId.replace(".","/")}/${jarArtifactId}:${jarVersion}-${getJenkinsBuild()}"
+    files project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
+    buildArgs(['JAR_FILE': "${jarArtifactId}-${jarVersion}.jar"])
+}
+
+def getJenkinsBuild(){
+    def manifest = new java.util.jar.Manifest(new FileInputStream(new File("${buildDir}/dockerStage/META-INF/MANIFEST.MF")));
+    def entries = manifest.getEntries();
+    def attr = manifest.getMainAttributes();
+    return attr.getValue("Jenkins-Build")
 }
