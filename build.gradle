@@ -52,19 +52,13 @@ task extractManifest(type: Exec){
     }
 }
 
-task setJenkinsBuild(){
-    dependsOn(project.tasks.extractManifest)
-    doFirst{
-        project.ext.jenkinsBuild = getJenkinsBuild()
-    }
-}
-
 project.tasks.docker.dependsOn(project.tasks.extractManifest)
 
 docker {
     files project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
     buildArgs(['JAR_FILE': "${jarArtifactId}-${jarVersion}.jar"])
 }
+
 project.afterEvaluate {
     docker {
         name "${jarGroupId.replace(".", "/")}/${jarArtifactId}:${jarVersion}-${getJenkinsBuild()}"
