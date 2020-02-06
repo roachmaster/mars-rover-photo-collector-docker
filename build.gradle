@@ -59,10 +59,9 @@ docker {
     files project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
     buildArgs(['JAR_FILE': "${jarArtifactId}-${jarVersion}.jar"])
 }
-
 def getJenkinsBuild(){
     def manifest = new java.util.jar.Manifest(new FileInputStream(new File("${buildDir}/dockerStage/META-INF/MANIFEST.MF")));
-    def entries = manifest.getEntries();
     def attr = manifest.getMainAttributes();
     return attr.getValue("Jenkins-Build")
 }
+
