@@ -1,6 +1,5 @@
 plugins {
     id 'maven'
-    id 'com.palantir.docker' version("0.24.0")
 }
 
 repositories {
@@ -14,18 +13,9 @@ repositories {
     }
 }
 
-//uploadArchives {
-//    repositories {
-//        mavenDeployer {
-//            repository(url: mavenRepo) {
-//                authentication(userName: mavenUser, password: mavenPassword)
-//            }
-//            pom.version = version + "-SNAPSHOT"
-//            pom.artifactId = artifactId
-//            pom.groupId = groupId
-//        }
-//    }
-//}
+configurations {
+    docker
+}
 
 ext {
     jarVersion = "1.0.0-SNAPSHOT"
@@ -50,23 +40,46 @@ task extractManifest(type: Exec){
     ext.output = {
         return standardOutput.toString()
     }
+    doLast{
+        project.ext.set("jenkinsBuild",getJenkinsBuild("${buildDir}/dockerStage/META-INF/MANIFEST.MF"))
+
+    }
+}
+
+task deleteManifest(type: Delete) {
+    dependsOn(project.tasks.extractManifest)
+    delete "${buildDir}/dockerStage/META-INF"
+}
+
+task copyDockerFile(type:Copy){
+    dependsOn(project.tasks.deleteManifest)
+    from "${projectDir}/Dockerfile"
+    into "${buildDir}/dockerStage"
+}
+
+task docker(){
+    dependsOn project.tasks.copyDockerFile
+
+    def jarFileName
+    def dockerRepoName
+    def commandLineString
+
+    doLast{
+        exec {
+            workingDir("${buildDir}/dockerStage/")
+            println project.ext.get("jenkinsBuild")
+            jarFileName = "${jarArtifactId}-${jarVersion}.jar"
+            dockerRepoName = "${jarGroupId.replace(".", "/")}/${jarArtifactId}:${jarVersion}-${project.ext.get('jenkinsBuild')}"
+            commandLineString = "docker build --build-arg JAR_FILE=${jarFileName} -t ${dockerRepoName} ."
+            commandLine commandLineString.split(" ")
+        }
+    }
 }
 
 project.tasks.docker.dependsOn(project.tasks.extractManifest)
 
-docker {
-    files project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
-    buildArgs(['JAR_FILE': "${jarArtifactId}-${jarVersion}.jar"])
-}
-
-project.afterEvaluate {
-    docker {
-        name "${jarGroupId.replace(".", "/")}/${jarArtifactId}:${jarVersion}-${getJenkinsBuild()}"
-    }
-}
-
-def getJenkinsBuild(){
-    def manifest = new java.util.jar.Manifest(new FileInputStream(file("${buildDir}/dockerStage/META-INF/MANIFEST.MF")));
+def getJenkinsBuild(def fileName){
+    def manifest = new java.util.jar.Manifest(new FileInputStream(file(fileName)));
     def attr = manifest.getMainAttributes();
     return attr.getValue("Jenkins-Build")
 }
