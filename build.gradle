@@ -52,15 +52,27 @@ task extractManifest(type: Exec){
     }
 }
 
+task setJenkinsBuild(){
+    dependsOn(project.tasks.extractManifest)
+    doFirst{
+        project.ext.jenkinsBuild = getJenkinsBuild()
+    }
+}
+
 project.tasks.docker.dependsOn(project.tasks.extractManifest)
 
 docker {
-    name "${jarGroupId.replace(".","/")}/${jarArtifactId}:${jarVersion}-${getJenkinsBuild()}"
     files project.configurations.docker.resolvedConfiguration.resolvedArtifacts[0].file
     buildArgs(['JAR_FILE': "${jarArtifactId}-${jarVersion}.jar"])
 }
+project.afterEvaluate {
+    docker {
+        name "${jarGroupId.replace(".", "/")}/${jarArtifactId}:${jarVersion}-${getJenkinsBuild()}"
+    }
+}
+
 def getJenkinsBuild(){
-    def manifest = new java.util.jar.Manifest(new FileInputStream(new File("${buildDir}/dockerStage/META-INF/MANIFEST.MF")));
+    def manifest = new java.util.jar.Manifest(new FileInputStream(file("${buildDir}/dockerStage/META-INF/MANIFEST.MF")));
     def attr = manifest.getMainAttributes();
     return attr.getValue("Jenkins-Build")
 }
